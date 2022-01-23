@@ -26,8 +26,18 @@ function object:draw()
     love.graphics.rectangle("fill", self._x, self._y, self._width, self._height)
 end
 
-function object:floorCollide(name, data)
-    print(self:name() .. " collided with " .. name)
+function object:onCollision(other)
+    if other:passive() then
+        return false
+    end
+    return "slide"
+end
+
+function object:interact(other, x, y)
+    if self._velocity.y > 0 and y > 0 then
+        self._velocity.y = 0
+        self._grounded = true
+    end
 end
 
 function object:passiveCollide(name, data)
@@ -55,6 +65,10 @@ end
 
 function object:velocity()
     return self._velocity.x, self._velocity.y
+end
+
+function object:velocityY()
+    return self._velocity.y
 end
 
 function object:gravity()

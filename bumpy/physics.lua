@@ -110,84 +110,34 @@ function physics.update(dt)
             local x,   y = entity:position()
             local dx, dy = entity:velocity()
 
+            local gravity = entity:gravity()
+
+            if gravity ~= 0 then
+                entity:setVelocity(dx, math.min(dy + gravity * dt, MAX_GRAVITY))
+            end
+
             local filter = defaultFilter
-            if entity.filter then
-                filter = entity.filter
-            end
-
-            local ax, ay, collisions, _ = world:move(entity, x + dx * dt, y + dy * dt, filter)
-
-            -- hit something, resolve
-            local horizontal, vertical = false, false
-
-            for index = 1, #collisions do
-                local collision = collisions[index].other
-
-                if collisions[index].normalY ~= 0 then
-                    vertical = physics.resolveVertical(entity, collision)
-                elseif collisions[index].normalX ~= 0 then
-                    horizontal = physics.resolveHorizontal(entity, collision)
-                end
-
-                entity:setGrounded(vertical)
-            end
-
-            if not entity:grounded() then
-                local gravity = entity:gravity()
-
-                if gravity ~= 0 then
-                    entity:setVelocity(dx, math.min(dy + gravity * dt, MAX_GRAVITY))
+            if entity.onCollision then
+                filter = function(...)
+                    local value = entity.onCollision(...)
+                    if value == nil then
+                        return defaultFilter(...)
+                    end
+                    return value
                 end
             end
 
-            if entity and ax and ay then
-                entity:setPosition(ax, ay)
+            local ax, ay, objects, len = world:move(entity, x + dx * dt, y + dy * dt, filter)
+
+            if len and len > 0 then
+                for index = 1, len do
+                    local normal_x, normal_y = -objects[index].normalX, -objects[index].normalY
+                    entity:interact(objects[index], normal_x, normal_y)
+                end
             end
-        end
-    end
-end
 
--- Internal resolution functions --
-
-function physics.resolveVertical(entity, against)
-    local name = against:name()
-    local x, velocity = entity:velocity()
-
-    if velocity > 0 then
-        if entity.floorCollide then
-            if entity:floorCollide(name, against) then
-                entity:setVelocity(x, 0)
-                return true
-            end
+            entity:setPosition(ax, ay)
         end
-        entity:setVelocity(x, 0)
-        return true
-    else
-        if entity.ceilCollide then
-            if entity:ceilCollide(name, against) then
-                entity:setVelocity(x, 0)
-                return true
-            end
-        end
-        entity:setVelocity(x, 0)
-        return true
-    end
-end
-
-function physics.resolveHorizontal(entity, against)
-    local name = against:name()
-    local velocity, y = entity:velocity()
-
-    if velocity > 0 then
-        if entity.rightCollide then
-            entity:rightCollide(name, against)
-        end
-        entity:setVelocity(0, y)
-    else
-        if entity.leftCollide then
-            entity:leftCollide(name, against)
-        end
-        entity:setVelocity(0, y)
     end
 end
 
